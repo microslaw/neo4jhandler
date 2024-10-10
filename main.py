@@ -4,13 +4,13 @@ from pyvis.network import Network
 import hidden
 import networkx as nx
 import webbrowser
-from neo4j.graph import Node, Relationship
 
 # e.g. hidden.py:
 #
 # uri="neo4j://localhost"
 # user="neo4j"
 # password="password"
+
 
 class NodeType:
     def __init__(self, node):
@@ -25,14 +25,14 @@ class NodeType:
         return {
             "id": self.id,
             "properties": self.properties,
-            "labels": list(self.labels)
+            "labels": list(self.labels),
         }
 
 
 class RelationType:
     def __init__(self, record):
         left, right = record[0].nodes
-        self.nodes =NodeType(left), NodeType(right)
+        self.nodes = NodeType(left), NodeType(right)
 
         # !!! might not be unique, look into later
         self.id = record[0].element_id
@@ -47,9 +47,8 @@ class RelationType:
             "id": self.id,
             "nodes": [node.to_JSON() for node in self.nodes],
             "type": self.type,
-            "properties": self.properties
+            "properties": self.properties,
         }
-
 
 
 def check_connection() -> None:
@@ -64,7 +63,7 @@ def check_connection() -> None:
         exit(1)
 
 
-def execute_query(query:str, database:str="neo4j")-> tuple:
+def execute_query(query: str, database: str = "neo4j") -> tuple:
     with GraphDatabase.driver(
         hidden.uri, auth=(hidden.username, hidden.password), database=database
     ) as driver:
@@ -84,12 +83,12 @@ def relations_to_graph(relations: list[RelationType]) -> nx.MultiDiGraph:
         G.add_node(right.id, data=right.to_JSON())
         G.add_edge(left.id, right.id, data=relation.to_JSON())
 
+
     return G
 
 
-def display_graph(G:nx.Graph):
+def display_graph(G: nx.Graph):
 
-    nx.draw(G, with_labels=True)
     nt = Network(height="1000", width="100%")
     nt.from_nx(G)
 
@@ -100,15 +99,16 @@ def display_graph(G:nx.Graph):
     webbrowser.open(url, new=0, autoraise=True)
 
 
+def load_query(filename: str) -> str:
+    with open(f"queries/{filename}.cypher", "r") as rfile:
+        return rfile.read()
 
 
 check_connection()
-with open("queries/check.cypher", "r") as f:
-    query = f.read()
-
-records, summary, keys = execute_query(query)
-relations = [RelationType(relation) for relation in records]
-
-G = relations_to_graph(relations)
-
-display_graph(G)
+while True:
+    filename = input("Enter query file name: ")
+    query = load_query(filename)
+    records, summary, keys = execute_query(query)
+    relations = [RelationType(relation) for relation in records]
+    G = relations_to_graph(relations)
+    display_graph(G)
